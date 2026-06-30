@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# build / test output
+dist/
+playwright-report/
+test-results/
+.playwright-mcp/
+.tmp/
+
+# auth + secrets — NEVER commit (B11: token files are secrets)
+playwright/.auth/
+.auth/
+.env
+.env.*
+
+# consumer-identifier denylist — PRIVATE, maintainer-supplied (the
+# no-consumer-identifiers lint auto-loads it from CWD). The published harness ships
+# only `.understudy-forbidden.example`; the real internal names never enter git.
+.understudy-forbidden.local
+
+# private maintainer dev tooling (commit identity / push token / commit-time guard).
+# Kept on disk for the maintainer; never published to the OSS harness.
+/bin/pcommit
+/bin/ppush
+/hooks/pre-commit
+
+# generated/learned skills (skill-optimize.ts output) — commit only a validated, promoted skill
+skills/*.learned.md
+
+# transient heal-measurement temp spec (written per-rollout by a3/optimizer; never committed)
+adapters/*/specs/_a3_heal.spec.ts
+
+# logs / os
+*.log
+.DS_Store

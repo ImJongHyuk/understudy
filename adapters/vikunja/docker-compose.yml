@@ -1,0 +1,38 @@
+# One-command hermetic Vikunja stack for understudy's 4th reference (a richer surface than Conduit:
+# projects, tasks, labels, list/kanban/gantt/table views, task detail).
+#
+#   docker compose -f adapters/vikunja/docker-compose.yml up -d --build   (or: bun run vikunja:up)
+#   then, in repos/understudy:  bun run e2e:vikunja
+#   tear down (DB is disposable):  bun run vikunja:down
+#
+# TWO services so the frontend is SOURCE-EDITABLE (for source-relabel drift heals — the prod image
+# embeds the frontend and can't be edited):
+#   api — the upstream Vikunja PROD image (Go backend, /api/v1), PINNED by digest. SQLite + files
+#         under /tmp with NO volume → every `up` is a pristine, hermetic DB. No secrets (throwaway
+#         JWT secret). Distroless (no shell) → readiness polled host-side by wait-ready.ts.
+#   web — the Vikunja FRONTEND from source in Vite DEV mode (HMR), built by Dockerfile.dev (pinned to
+#         the matching tag). It is the browser SUT (:4173) and proxies /api -> api. Editing a source
+#         file in this container hot-reloads, exactly like the Conduit reference.
+name: understudy-vikunja
+
+services:
+  api:
+    # vikunja/vikunja:latest @ 2026-06-21 (v2.3.0). To move the pin, update this digest + Dockerfile.dev VIKUNJA_REF.
+    image: vikunja/vikunja@sha256:f6b80393c1998cd5cd0dc38d24762c59ab4c10000a6f1032ef5b554e262cab93
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: http://localhost:4173 # the public frontend (web) URL
+      VIKUNJA_SERVICE_SECRET: dev-only-not-a-secret
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "true"
+      VIKUNJA_FILES_BASEPATH: /tmp/vikunja-files
+      VIKUNJA_DATABASE_PATH: /tmp/vikunja.db
+    ports:
+      - "3456:3456" # backend API — the seed adapter talks here directly
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - api
+    ports:
+      - "4173:4173" # the editable Vite dev SUT (HMR) — the browser origin

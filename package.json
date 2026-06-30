@@ -1,0 +1,31 @@
+{
+  "name": "understudy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent agentic E2E testing harness on Playwright Agents (thin core + per-project adapter).",
+  "scripts": {
+    "e2e:realworld": "playwright test --config playwright.realworld.config.ts",
+    "realworld:up": "docker compose -f adapters/realworld-conduit/docker-compose.yml up --build -d --wait",
+    "realworld:down": "docker compose -f adapters/realworld-conduit/docker-compose.yml down -v",
+    "e2e:cookie": "playwright test --config playwright.cookie.config.ts",
+    "cookie:up": "docker compose -f adapters/cookie-notes/docker-compose.yml up --build -d --wait",
+    "cookie:down": "docker compose -f adapters/cookie-notes/docker-compose.yml down -v",
+    "e2e:vikunja": "playwright test --config playwright.vikunja.config.ts",
+    "vikunja:up": "docker compose -f adapters/vikunja/docker-compose.yml up -d --build && bun adapters/vikunja/wait-ready.ts",
+    "vikunja:down": "docker compose -f adapters/vikunja/docker-compose.yml down",
+    "e2e:oidc": "playwright test --config playwright.oidc.config.ts",
+    "oidc:up": "docker compose -f adapters/oidc/docker-compose.yml up -d && bun adapters/oidc/wait-ready.ts",
+    "oidc:down": "docker compose -f adapters/oidc/docker-compose.yml down",
+    "conformance": "playwright test --config playwright.conformance.config.ts",
+    "lint:specs": "bun scripts/lint-specs.ts",
+    "burn-in": "playwright test --config playwright.realworld.config.ts --repeat-each=10",
+    "typecheck": "tsc --noEmit",
+    "init-agents": "playwright init-agents --loop=claude --config playwright.realworld.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

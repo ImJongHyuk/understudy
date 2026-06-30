@@ -1,0 +1,138 @@
+# understudy CI — the merge gate is PURE DETERMINISTIC PLAYWRIGHT. There is NO LLM
+# anywhere in this workflow (INV-1): no agent, no MCP server, no Planner/Generator/
+# Healer, no model credentials. Agents author and heal tests UPSTREAM (human-reviewed);
+# CI only runs the frozen, deterministic gate. The "checks" job is app-free + LLM-free
+# (the deterministic conformance/lint/typecheck gate + the settle render-budget
+# regression guard); "reference-e2e" runs Playwright against EACH hermetic reference
+# consumer (RealWorld, Vikunja, cookie-notes) via a matrix — still no LLM.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Manual re-run trigger (checks + reference-e2e). NO nightly cron: the ×10 burn-in
+  # job it used to gate was REMOVED — the hermetic single-container reference backend
+  # can't sustain ×10 sustained load, so burn-in false-failed on STACK SATURATION
+  # (bcrypt auth + CRUD), not spec flake (see docs/CONTRACT-LESSONS.md L20). The push/PR
+  # matrix is the deterministic gate; real flake-hunting needs a provisioned stack (future).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Job 1 — app-free + LLM-free deterministic gate: typecheck + adapter-contract
+  # conformance + spec lint. No agent, no MCP, no credentials.
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright (chromium)
+        run: bunx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Conformance (adapter-contract + trust machinery)
+        run: bun run conformance
+
+      - name: Lint specs
+        run: bun run lint:specs
+
+      # Settle render-budget regression guard — runs the never-idle/long-poll grounding
+      # loadtest (its own in-process SSE fixture + chromium; NO docker, NO app, NO LLM).
+      # Locks the DOM-quiet-primary settle so a regression can't silently re-introduce the
+      # 6s networkidle penalty or snapshot a "loading…" placeholder.
+      - name: Settle render loadtest (never-idle grounding guard)
+        run: bun scripts/settle-loadtest.ts
+
+  # Job 2 — actionlint: statically lint the workflow files themselves. No bun /
+  # Playwright / app needed. Uses the documented download script (the project ships
+  # no first-party published action), pinned to a release tag via ACTIONLINT_VERSION.
+  # v1.7.12 is a verified upstream release (tag → commit 914e7df21a07ef503a81201c76d2b11c789d3fca).
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint workflow files (actionlint)
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          bash <(curl -sSf "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "${ACTIONLINT_VERSION}"
+          ./actionlint -color
+        shell: bash
+
+  # Job 3 — deterministic Playwright E2E against EACH hermetic reference consumer
+  # (localhost only) via a matrix, so a regression in ANY adapter (not just RealWorld)
+  # fails CI. Still NO LLM: the gate just runs the authored specs. fail-fast: false so one
+  # adapter's failure doesn't mask the others.
+  reference-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        adapter:
+          - { name: realworld, up: 'realworld:up', e2e: 'e2e:realworld', down: 'realworld:down' }
+          - { name: vikunja, up: 'vikunja:up', e2e: 'e2e:vikunja', down: 'vikunja:down' }
+          - { name: cookie, up: 'cookie:up', e2e: 'e2e:cookie', down: 'cookie:down' }
+          - { name: oidc, up: 'oidc:up', e2e: 'e2e:oidc', down: 'oidc:down' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright (chromium)
+        run: bunx playwright install --with-deps chromium
+
+      - name: Bring up the hermetic ${{ matrix.adapter.name }} app (docker)
+        run: bun run ${{ matrix.adapter.up }}
+
+      - name: E2E — ${{ matrix.adapter.name }} reference (deterministic Playwright)
+        run: bun run ${{ matrix.adapter.e2e }}
+
+      # B11 pre-upload leak-check: scan test-results/ for secret values, token shapes,
+      # and sensitive header values BEFORE any artifact upload. A hit fails the step
+      # (cannot-run = RED) so a trace carrying a leak never leaves the runner. The
+      # playwright/.auth/ storageState is gitignored and never added to an artifact.
+      - name: B11 leak-check (block upload on any leak)
+        if: ${{ !cancelled() }}
+        run: bun run scripts/check-artifact-leaks.ts test-results
+
+      - name: Upload Playwright trace (only after a clean leak-check)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.adapter.name }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Tear down the hermetic ${{ matrix.adapter.name }} app
+        if: ${{ always() }}
+        run: bun run ${{ matrix.adapter.down }}
+
+  # NOTE — a burn-in job (reference E2E ×10, flake hunt) USED to live here, gated to
+  # workflow_dispatch + a nightly cron. It was removed: the hermetic single-container
+  # reference backend (Express + bcrypt + Sequelize/PG) can't sustain ×10 sustained
+  # load, so burn-in red was stack saturation (token-acquisition + CRUD timeouts), not
+  # spec flake — a false signal that drowned any real one. Retry, token-reuse, and a
+  # prod-build SUT all failed to lift the backend's throughput ceiling; only ×1 (the
+  # push/PR matrix above) is clean. The `bun run burn-in` script is kept as a LOCAL tool
+  # for a provisioned stack. Real CI flake-hunting is deferred to such a stack — see
+  # docs/CONTRACT-LESSONS.md L20.

@@ -1,0 +1,32 @@
+# Hermetic OIDC IdP (Dex) for understudy's OIDC reference consumer.
+# NO secrets: the client secret + the test user's password are throwaway local-dev
+# values, and the whole stack is localhost-only (see docker-compose.yml). Dex serves a
+# REAL OIDC discovery + authorization-code flow with a REAL HTML login form (the local
+# password connector), so the auth adapter drives an honest redirect dance — not a mock.
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory # ephemeral → every `up` is pristine/hermetic
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  # No consent screen — the redirect flow is login-only, so it stays deterministic for E2E.
+  skipApprovalScreen: true
+
+staticClients:
+  - id: oauth2-proxy
+    name: oauth2-proxy
+    secret: oauth2-proxy-client-secret-dev # throwaway dev value, not a credential
+    redirectURIs:
+      - http://localhost:4180/oauth2/callback
+
+# A fixed throwaway user (NOT a credential — the app is hermetic). The hash is
+# bcrypt("Password123!"); keep the plaintext only in the adapter's TEST_USER.
+enablePasswordDB: true
+staticPasswords:
+  - email: understudy-e2e@example.com
+    hash: "$2b$10$cOkvMUAsU1DtlJ/BWxfvXuGwkwc9Jhbx5./EQCqEW0KvaufQN/9Wq"
+    username: understudy-e2e
+    userID: understudy-e2e-uid

@@ -1,0 +1,18 @@
+# understudy — consumer-identifier denylist (EXAMPLE)
+#
+# The `no-consumer-identifiers` lint scans `core/` for internal/consumer names that
+# must never ship in the published, OSS harness. The denylist is CONSUMER-SUPPLIED so
+# `core/` itself never embeds — and thus never publishes — those very names.
+#
+# Enable the guard for your project by providing your internal tokens via ONE of:
+#   * env   UNDERSTUDY_FORBIDDEN_IDENTIFIERS="acme-internal,widgetco pipeline"
+#   * env   UNDERSTUDY_FORBIDDEN_FILE=/path/to/denylist.txt
+#   * copy this file to  .understudy-forbidden.local  (gitignored, auto-loaded from CWD)
+#
+# Format: one literal token per line. Blank lines and lines starting with `#` are
+# ignored. Runs of separators (- _ . / whitespace) match flexibly, so `acme-pipeline`
+# also catches `acme pipeline`, `acme/pipeline`, `acme_pipeline`. Case-insensitive.
+
+acme-internal
+widgetco pipeline
+INTERNAL_API_KEY_PREFIX

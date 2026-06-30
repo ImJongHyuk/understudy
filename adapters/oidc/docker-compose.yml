@@ -1,0 +1,80 @@
+# One-command hermetic OIDC reference stack for understudy — a REAL OAuth2/OIDC
+# authorization-code REDIRECT flow, the hardest auth mechanism for the contract:
+#
+#   browser -> oauth2-proxy (relying party, :4180) --302--> dex (IdP, :5556) login form
+#           -> dex --302--> oauth2-proxy /oauth2/callback -> session cookie -> whoami (protected)
+#
+# NO secrets: the client secret, oauth2-proxy cookie secret, and test-user password are
+# throwaway local-dev values; everything binds localhost only.
+#
+#   bun run oidc:up    (compose up + host-poll readiness)
+#   bun run oidc:down  (dispose; in-memory IdP → pristine every up)
+#
+# Pins by digest for reproducible, supply-chain-stable builds (like the other adapters).
+name: understudy-oidc
+
+# Neutralize any host-injected HTTP proxy inside the stack: this is a fully self-contained
+# localhost/compose-internal stack, so no container should proxy. Needed because a host proxy
+# env gets injected into containers and BusyBox wget (dex healthcheck) ignores `no_proxy`,
+# while Go's proxy match won't bypass the bare service hostname `dex` — both would wrongly route
+# internal traffic through the proxy. Empty values = "no proxy" everywhere; a no-op on CI/hosts
+# without a proxy. (Portable + generic — no host-specific values baked in.)
+x-no-proxy: &no-proxy
+  HTTP_PROXY: ''
+  HTTPS_PROXY: ''
+  http_proxy: ''
+  https_proxy: ''
+  NO_PROXY: '*'
+  no_proxy: '*'
+
+services:
+  # IdP — Dex with the local password connector (a real OIDC discovery + auth-code flow).
+  dex:
+    image: ghcr.io/dexidp/dex@sha256:70fbdd07f990ca00dc239bb9c7ef866914c5d7ea5cf10ea6ac4e8780d37738d9
+    environment: *no-proxy
+    command: ['dex', 'serve', '/etc/dex/config.yaml']
+    volumes:
+      - ./dex.config.yaml:/etc/dex/config.yaml:ro
+    ports:
+      - '5556:5556'
+    healthcheck: # dex image ships a shell + wget
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:5556/dex/.well-known/openid-configuration']
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  # Protected upstream — traefik/whoami echoes request headers, so the oauth2-proxy-injected
+  # X-Forwarded-Email/-User is visible on the page = a clean authenticated-identity probe target.
+  whoami:
+    image: traefik/whoami@sha256:200689790a0a0ea48ca45992e0450bc26ccab5307375b41c84dfc4f2475937ab
+    environment: *no-proxy
+
+  # Relying party — oauth2-proxy does the OIDC redirect dance and sets a session COOKIE
+  # (so Playwright storageState carries it natively — no extra-state needed). Split-horizon
+  # endpoints resolve the docker issuer-URL problem: the BROWSER hits dex at localhost:5556,
+  # the back-channel (token/jwks) hits dex over the compose network.
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy@sha256:10a1165743a192e1940b4708fb9647027185ce11a681a1c5519b442ff7f1f561
+    environment: *no-proxy
+    depends_on:
+      dex:
+        condition: service_healthy
+    command:
+      - --http-address=0.0.0.0:4180
+      - --upstream=http://whoami:80
+      - --provider=oidc
+      - --client-id=oauth2-proxy
+      - --client-secret=oauth2-proxy-client-secret-dev
+      - --cookie-secret=understudy-oidc-dev-cookiesecret
+      - --cookie-secure=false
+      - --email-domain=*
+      - --scope=openid email profile
+      - --redirect-url=http://localhost:4180/oauth2/callback
+      - --oidc-issuer-url=http://localhost:5556/dex
+      - --skip-oidc-discovery=true
+      - --login-url=http://localhost:5556/dex/auth
+      - --redeem-url=http://dex:5556/dex/token
+      - --oidc-jwks-url=http://dex:5556/dex/keys
+      - --skip-provider-button=true
+    ports:
+      - '4180:4180'

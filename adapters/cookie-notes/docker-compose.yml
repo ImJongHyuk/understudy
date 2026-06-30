@@ -1,0 +1,23 @@
+# One-command hermetic Cookie-Notes stack for understudy's reference suite.
+#
+#   docker compose -f adapters/cookie-notes/docker-compose.yml up --build -d --wait
+#
+# The THIRD consumer's System-Under-Test: a notes app whose auth is an httpOnly
+# server SESSION COOKIE (opaque `sid`), not a localStorage JWT. In-memory stores,
+# NO DB, NO volumes → every `up` is a pristine, hermetic app. No secrets (the
+# session secret + the fixed throwaway user are non-sensitive local-dev values).
+name: understudy-cookie-notes
+
+services:
+  app:
+    build: .
+    environment:
+      PORT: "3100"
+    ports:
+      - "3100:3100" # the browser SUT + the cookie-authed JSON API
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3100/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s

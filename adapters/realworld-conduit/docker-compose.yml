@@ -1,0 +1,48 @@
+# One-command hermetic RealWorld (Conduit) stack for understudy's reference suite.
+#
+#   docker compose -f adapters/realworld-conduit/docker-compose.yml up --build -d --wait
+#   (or: bun run realworld:up)
+#
+# Then, in repos/understudy:  bun run e2e:realworld
+# Tear down (DB is disposable):  bun run realworld:down
+#
+# No secrets: the JWT_KEY + DB password are throwaway local-dev values. The DB has
+# no host port and no volume → every `up` is a pristine, hermetic database.
+name: understudy-realworld
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: conduit
+      POSTGRES_PASSWORD: conduit
+      POSTGRES_DB: conduit_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U conduit -d conduit_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "3001"
+      JWT_KEY: dev-only-not-a-secret
+      DEV_DB_USERNAME: conduit
+      DEV_DB_PASSWORD: conduit
+      DEV_DB_NAME: conduit_dev
+      DEV_DB_HOSTNAME: db
+      DEV_DB_DIALECT: postgres
+      DEV_DB_LOGGING: ""
+    ports:
+      - "3000:3000" # frontend (Vite) — the browser SUT
+      - "3001:3001" # backend API — the seed target
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000 >/dev/null 2>&1 || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 120s

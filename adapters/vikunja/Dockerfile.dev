@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+#
+# Vikunja FRONTEND from source in DEV mode (Vite + HMR) — the EDITABLE SUT that makes source-relabel
+# drift heals possible (the prod image embeds the frontend, so it can't be edited; see HEAL-EVIDENCE).
+# Nothing is vendored: the frontend is fetched at build time, PINNED to the upstream tag matching the
+# backend image. The Go backend runs from the pinned prod image (the compose `api` service); this
+# image serves ONLY the editable frontend and proxies /api -> the backend (DEV_PROXY).
+FROM node:24
+
+WORKDIR /src
+ARG VIKUNJA_REF=v2.3.0
+# Skip heavy, dev-irrelevant binary downloads during install (frontend test tooling).
+ENV PUPPETEER_SKIP_DOWNLOAD=true CYPRESS_INSTALL_BINARY=0
+
+# Sparse-fetch just the pinned frontend, then install with the upstream lockfile (reproducible).
+RUN corepack enable \
+ && corepack prepare pnpm@10.28.1 --activate \
+ && git clone --depth 1 --branch "$VIKUNJA_REF" --filter=blob:none --sparse https://github.com/go-vikunja/vikunja /src \
+ && git sparse-checkout set frontend \
+ && cd frontend && pnpm install --frozen-lockfile
+
+WORKDIR /src/frontend
+EXPOSE 4173
+# DEV_PROXY -> the backend (compose service `api`); port from VIKUNJA_FRONTEND_PORT (read by
+# vite.config). Run vite directly with --host 0.0.0.0 (the config hardcodes 127.0.0.1, unreachable
+# across the compose bridge; the CLI flag overrides it so the SUT is reachable from the host).
+ENV DEV_PROXY=http://api:3456 VIKUNJA_FRONTEND_PORT=4173
+CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0"]
