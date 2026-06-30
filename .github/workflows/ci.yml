@@ -28,7 +28,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -63,7 +63,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Lint workflow files (actionlint)
         env:
@@ -88,7 +88,7 @@ jobs:
           - { name: cookie, up: 'cookie:up', e2e: 'e2e:cookie', down: 'cookie:down' }
           - { name: oidc, up: 'oidc:up', e2e: 'e2e:oidc', down: 'oidc:down' }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -116,7 +116,7 @@ jobs:
 
       - name: Upload Playwright trace (only after a clean leak-check)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-traces-${{ matrix.adapter.name }}
           path: test-results/
