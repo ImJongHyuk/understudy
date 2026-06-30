@@ -17,7 +17,7 @@
 import { chromium } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { lintHealedChange } from '../core/post-heal-lint'
+import { lintHealedChange } from '../core/gates/post-heal-lint'
 import { createBridge, parseModels, type ModelSpec } from '../llm'
 import { loadHealSkill } from '../skills/load-skill'
 import { ensureSetup, cleanupTemp, runSpecOnce, makeRealTools, makeHealTarget, type HealTarget } from '../heal/real-tools'

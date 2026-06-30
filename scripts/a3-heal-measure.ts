@@ -23,7 +23,7 @@
  *   bun scripts/a3-heal-measure.ts [--n=5] [--model=x] [--break=name]   # real run
  */
 import { chromium } from '@playwright/test'
-import { lintHealedChange } from '../core/post-heal-lint'
+import { lintHealedChange } from '../core/gates/post-heal-lint'
 import { createBridge, parseModels, type ModelSpec } from '../llm'
 import { loadHealSkill } from '../skills/load-skill'
 import { type HealTools, ensureSetup, cleanupTemp, runSpecOnce, makeRealTools, makeHealTarget } from '../heal/real-tools'

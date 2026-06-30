@@ -17,7 +17,7 @@
  */
 import fs from 'node:fs'
 import { chromium, type Browser } from '@playwright/test'
-import { lintHealedChange } from '../core/post-heal-lint'
+import { lintHealedChange } from '../core/gates/post-heal-lint'
 import { loadHealSkill } from '../skills/load-skill'
 import { createBridge, parseModels, type LlmBridge, type ModelSpec, type ToolSchema } from '../llm'
 import { type HealTools, ensureSetup, cleanupTemp, runSpecOnce, makeRealTools, makeHealTarget } from '../heal/real-tools'

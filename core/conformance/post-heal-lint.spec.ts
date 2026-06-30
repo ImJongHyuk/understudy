@@ -7,8 +7,8 @@
  * "LLM never lowers the bar" boundary is VERIFIED, not asserted.
  */
 import { test, expect } from '@playwright/test'
-import { lintHealedChange } from '../post-heal-lint'
-import type { HealChange } from '../post-heal-lint'
+import { lintHealedChange } from '../gates/post-heal-lint'
+import type { HealChange } from '../gates/post-heal-lint'
 
 /** A realistic adapter spec, used as the pre-heal baseline for each mutation. */
 const BASE_SPEC = [

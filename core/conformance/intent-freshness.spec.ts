@@ -6,7 +6,7 @@
  * silent pass). Pure-unit (no clock, no I/O), so the freshness discipline is VERIFIED, not asserted.
  */
 import { test, expect } from '@playwright/test'
-import { checkIntentFreshness, type IntentRecord } from '../intent-freshness'
+import { checkIntentFreshness, type IntentRecord } from '../gates/intent-freshness'
 
 const NOW = '2026-06-30'
 const OPTS = { now: NOW, maxAgeDays: 90 }

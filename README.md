@@ -110,9 +110,10 @@ raise weak-model root-causing without ever touching the gate
 
 ```text
 core/       project-agnostic harness — auth lifecycle, machine-auth state seeding,
-            host guard, the deterministic trust gates (negative-control,
-            no-mock-of-SUT, intent-freshness, post-heal-lint) + the OSS leak guard,
-            and the mutation-proven conformance/ suite. Never changes per project.
+            host guard, the OSS leak guard, and the mutation-proven conformance/
+            suite. Never changes per project.
+core/gates/ the deterministic, LLM-free trust gates (each mutation-proven):
+            negative-control, no-mock-of-SUT, intent-freshness, post-heal-lint.
 heal/       the agentic Healer loop + grounding levers.
 adapters/   one per consumer — the four hermetic reference consumers (above).
 docs/       the adapter contract (INTERFACES-v0) + design notes + lessons.

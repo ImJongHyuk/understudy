@@ -17,7 +17,7 @@ import {
   runNegativeControlBuild,
   type RunOutcome,
   type PlaywrightTestResultLike,
-} from '../negative-control'
+} from '../gates/negative-control'
 
 const GOOD_PASS: RunOutcome = { passed: true }
 const BAD_NAMED_ASSERT: RunOutcome = {

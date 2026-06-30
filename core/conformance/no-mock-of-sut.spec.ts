@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { lintNoMockOfSut, NO_MOCK_OF_SUT_RULE } from '../no-mock-of-sut'
+import { lintNoMockOfSut, NO_MOCK_OF_SUT_RULE } from '../gates/no-mock-of-sut'
 
 const SUT = ['/api', 'localhost:3001'] as const
 
